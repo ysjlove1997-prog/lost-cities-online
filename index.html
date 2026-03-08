@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lost Cities Online</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+
+* { box-sizing: border-box; }
+
+html,body{
+margin:0;
+padding:0;
+}
+
+body{
+font-family:Arial,sans-serif;
+background:#0f172a;
+color:#e2e8f0;
+padding:12px;
+transition:background .35s ease;
+}
+
+.box{
+background:#1e293b;
+border:1px solid #334155;
+border-radius:12px;
+padding:12px;
+margin-bottom:12px;
+}
+
+.mini-box,.exp-box,.discard-box,.action-log{
+background:#0f172a;
+border:1px solid #334155;
+border-radius:10px;
+padding:10px;
+}
+
+h1{margin:0 0 12px;font-size:24px;}
+h2{margin:0 0 10px;font-size:18px;}
+h3{margin:0 0 8px;font-size:15px;}
+
+.topbar{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:8px;
+margin-bottom:12px;
+}
+
+.status{
+background:#111827;
+border:1px solid #334155;
+border-radius:10px;
+padding:10px;
+font-weight:bold;
+font-size:13px;
+}
+
+#timerInfo{
+grid-column:1/-1;
+text-align:center;
+font-size:15px;
+}
+
+.row{
+display:flex;
+flex-wrap:wrap;
+gap:8px;
+}
+
+/* 손패 카드 (조금 축소됨) */
+
+.hand-card{
+width:calc(50% - 4px);
+text-align:center;
+border-width:2px;
+border-style:solid;
+border-radius:10px;
+padding:8px;
+transition:transform .12s ease,box-shadow .12s ease;
+}
+
+.hand-card:active{
+transform:scale(.98);
+}
+
+.hand-card .card-title{
+font-size:22px;
+font-weight:800;
+margin-bottom:6px;
+line-height:1.1;
+}
+
+.hand-card .card-subtitle{
+font-size:11px;
+margin-bottom:6px;
+font-weight:bold;
+}
+
+.hand-card button{
+width:100%;
+padding:9px 6px;
+font-size:12px;
+min-height:38px;
+}
+
+.hand-card.color-red{background:#dc2626;border-color:#fca5a5;color:#fff;}
+.hand-card.color-blue{background:#2563eb;border-color:#93c5fd;color:#fff;}
+.hand-card.color-yellow{background:#facc15;border-color:#fde68a;color:#111827;}
+.hand-card.color-green{background:#16a34a;border-color:#86efac;color:#fff;}
+.hand-card.color-white{background:#f8fafc;border-color:#cbd5e1;color:#111827;}
+
+button{
+cursor:pointer;
+border:none;
+border-radius:10px;
+padding:12px 10px;
+font-weight:bold;
+font-size:14px;
+min-height:44px;
+width:100%;
+}
+
+button.primary{background:#22c55e;color:#fff;}
+button.warn{background:#ef4444;color:#fff;}
+button.draw{background:#f59e0b;color:#fff;}
+button.end{background:#b91c1c;color:#fff;}
+
+.small{font-size:12px;color:#cbd5e1;}
+.winner{font-size:16px;font-weight:bold;color:#facc15;margin-top:10px;}
+
+.board-3col{
+display:grid;
+grid-template-columns:1fr 1fr 1.15fr;
+gap:8px;
+}
+
+.board-panel{padding:10px;}
+
+.board-panel h2{
+font-size:15px;
+text-align:center;
+margin-bottom:8px;
+}
+
+.board-stack{
+display:flex;
+flex-direction:column;
+gap:8px;
+}
+
+.overlay{
+position:fixed;
+inset:0;
+background:rgba(2,6,23,.72);
+display:none;
+align-items:center;
+justify-content:center;
+z-index:9999;
+padding:16px;
+}
+
+.overlay.show{display:flex;}
+
+.popup{
+width:100%;
+max-width:420px;
+background:#111827;
+border:1px solid #475569;
+border-radius:16px;
+padding:18px;
+text-align:center;
+}
+
+.popup h2{margin-bottom:12px;color:#facc15;}
+
+</style>
+</head>
+
+<body>
+
+<h1>Lost Cities Online</h1>
+
+<div class="topbar">
+<div class="status" id="roomInfo">room: -</div>
+<div class="status" id="playerInfo">player: -</div>
+<div class="status" id="turnInfo">turn: -</div>
+<div class="status" id="phaseInfo">phase: -</div>
+<div class="status" id="statusInfo">status: -</div>
+<div class="status" id="roundInfo">round: -</div>
+<div class="status" id="timerInfo">timer: -</div>
+</div>
+
+<div class="box" id="mainStatusBox">
+
+<div id="message">불러오는 중...</div>
+
+<div class="small">자동 배정: index.html?room=room1</div>
+
+<div class="action-log">
+<strong>최근 행동:</strong>
+<span id="lastActionText">없음</span>
+</div>
+
+<div class="action-bar">
+<button id="endGameBtn" class="end" onclick="endGameAndResetRoom()">게임 종료</button>
+</div>
+
+<div id="winnerText" class="winner"></div>
+
+</div>
+
+<div class="box">
+<h2>점수</h2>
+<div class="row">
+<div class="mini-box" id="score1Box"></div>
+<div class="mini-box" id="score2Box"></div>
+<div class="mini-box" id="matchScore1Box"></div>
+<div class="mini-box" id="matchScore2Box"></div>
+<div class="mini-box" id="deckCountBox"></div>
+</div>
+</div>
+
+<div class="box">
+<h2>내 손패</h2>
+<div id="handArea" class="row"></div>
+</div>
+
+<div class="board-3col">
+
+<div class="box board-panel">
+<h2>내 탐험 칸</h2>
+<div id="myExpArea" class="board-stack"></div>
+</div>
+
+<div class="box board-panel">
+<h2>상대 탐험 칸</h2>
+<div id="oppExpArea" class="board-stack"></div>
+</div>
+
+<div class="box board-panel">
+<h2>뽑기 영역</h2>
+
+<div class="board-stack">
+
+<div class="discard-box">
+<h3>덱</h3>
+<div id="deckCount">0장</div>
+<button id="drawDeckBtn" class="draw" onclick="drawFromDeck()">덱에서 뽑기</button>
+</div>
+
+<div class="discard-box">
+<h3>빨강 버림</h3>
+<div id="discardRedTop"></div>
+<button id="drawRedBtn" class="draw" onclick="drawFromDiscard('red')">빨강</button>
+</div>
+
+<div class="discard-box">
+<h3>파랑 버림</h3>
+<div id="discardBlueTop"></div>
+<button id="drawBlueBtn" class="draw" onclick="drawFromDiscard('blue')">파랑</button>
+</div>
+
+<div class="discard-box">
+<h3>노랑 버림</h3>
+<div id="discardYellowTop"></div>
+<button id="drawYellowBtn" class="draw" onclick="drawFromDiscard('yellow')">노랑</button>
+</div>
+
+<div class="discard-box">
+<h3>초록 버림</h3>
+<div id="discardGreenTop"></div>
+<button id="drawGreenBtn" class="draw" onclick="drawFromDiscard('green')">초록</button>
+</div>
+
+<div class="discard-box">
+<h3>하양 버림</h3>
+<div id="discardWhiteTop"></div>
+<button id="drawWhiteBtn" class="draw" onclick="drawFromDiscard('white')">하양</button>
+</div>
+
+</div>
+
+</div>
+</div>
+
+<script>
+
+/* 기존 JS 로직 그대로 사용 */
+
+</script>
+
+</body>
+</html>
