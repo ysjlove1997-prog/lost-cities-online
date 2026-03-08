@@ -1,0 +1,1563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lost Cities Online</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px;
+      transition: background 0.35s ease;
+      -webkit-text-size-adjust: 100%;
+    }
+
+    .box {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    .mini-box, .exp-box, .discard-box, .action-log {
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
+    }
+
+    body.my-turn-glow .box {
+      background: #314437;
+      border-color: #6cc487;
+      box-shadow: 0 0 0 1px rgba(108, 196, 135, 0.18);
+    }
+
+    body.my-turn-glow .mini-box,
+    body.my-turn-glow .exp-box,
+    body.my-turn-glow .discard-box,
+    body.my-turn-glow .action-log {
+      background: #1d2d22;
+      border-color: #5ea777;
+    }
+
+    body.turn-warning .box {
+      background: #4a2c2c;
+      border-color: #d17a7a;
+      box-shadow: 0 0 0 1px rgba(209, 122, 122, 0.2);
+    }
+
+    body.turn-warning .mini-box,
+    body.turn-warning .exp-box,
+    body.turn-warning .discard-box,
+    body.turn-warning .action-log {
+      background: #2c1818;
+      border-color: #b86b6b;
+    }
+
+    h1 {
+      margin: 0 0 12px 0;
+      font-size: 24px;
+      line-height: 1.2;
+    }
+
+    h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      line-height: 1.3;
+    }
+
+    h3 {
+      margin: 0 0 8px 0;
+      font-size: 15px;
+      line-height: 1.3;
+    }
+
+    .topbar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .status {
+      background: #111827;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      padding: 10px;
+      font-weight: bold;
+      font-size: 13px;
+      line-height: 1.35;
+      transition: all 0.18s ease;
+      min-width: 0;
+      word-break: break-word;
+    }
+
+    #timerInfo {
+      grid-column: 1 / -1;
+      text-align: center;
+      font-size: 15px;
+    }
+
+    .status.active-turn {
+      background: #14532d;
+      border-color: #4ade80;
+      box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.18);
+    }
+
+    .status.wait-turn {
+      background: #1e293b;
+      border-color: #64748b;
+      opacity: 0.95;
+    }
+
+    .status.timer-warning {
+      background: #7c2d12;
+      border-color: #fb923c;
+      box-shadow: 0 0 0 2px rgba(251, 146, 60, 0.16);
+    }
+
+    .box.turn-highlight {
+      border-color: #22c55e;
+      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.18);
+    }
+
+    .row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .hand-card {
+      width: calc(50% - 4px);
+      min-width: 0;
+      text-align: center;
+      border-width: 2px;
+      border-style: solid;
+      border-radius: 12px;
+      padding: 10px;
+      transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+
+    .hand-card:active {
+      transform: scale(0.98);
+    }
+
+    .hand-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+    }
+
+    .hand-card .card-title {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 8px;
+      line-height: 1.1;
+    }
+
+    .hand-card .card-subtitle {
+      font-size: 12px;
+      opacity: 0.9;
+      margin-bottom: 8px;
+      font-weight: bold;
+    }
+
+    .hand-card.color-red {
+      background: #dc2626;
+      border-color: #fca5a5;
+      color: #ffffff;
+    }
+
+    .hand-card.color-blue {
+      background: #2563eb;
+      border-color: #93c5fd;
+      color: #ffffff;
+    }
+
+    .hand-card.color-yellow {
+      background: #facc15;
+      border-color: #fde68a;
+      color: #111827;
+    }
+
+    .hand-card.color-green {
+      background: #16a34a;
+      border-color: #86efac;
+      color: #ffffff;
+    }
+
+    .hand-card.color-white {
+      background: #f8fafc;
+      border-color: #cbd5e1;
+      color: #111827;
+    }
+
+    .exp-box, .discard-box, .mini-box {
+      min-width: 0;
+      flex: 1 1 100%;
+    }
+
+    .action-bar {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 10px;
+      margin: 4px 0 0 0;
+      font-weight: bold;
+      font-size: 14px;
+      min-height: 44px;
+      width: 100%;
+      touch-action: manipulation;
+    }
+
+    .hand-card button {
+      width: 100%;
+    }
+
+    .hand-card button + button {
+      margin-top: 6px;
+    }
+
+    button.primary { background: #22c55e; color: white; }
+    button.warn { background: #ef4444; color: white; }
+    button.draw { background: #f59e0b; color: white; }
+    button.end { background: #b91c1c; color: white; }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .small {
+      font-size: 12px;
+      color: #cbd5e1;
+      line-height: 1.4;
+    }
+
+    .color-red { color: #f87171; }
+    .color-blue { color: #60a5fa; }
+    .color-yellow { color: #fde047; }
+    .color-green { color: #4ade80; }
+    .color-white { color: #f8fafc; }
+
+    .winner {
+      font-size: 16px;
+      font-weight: bold;
+      color: #facc15;
+      margin-top: 10px;
+      line-height: 1.4;
+    }
+
+    .mono {
+      font-family: Consolas, monospace;
+    }
+
+    .action-log {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #e2e8f0;
+      line-height: 1.45;
+    }
+
+    .action-log strong {
+      color: #93c5fd;
+    }
+
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 23, 0.72);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 16px;
+    }
+
+    .overlay.show {
+      display: flex;
+    }
+
+    .popup {
+      width: 100%;
+      max-width: 420px;
+      background: #111827;
+      border: 1px solid #475569;
+      border-radius: 16px;
+      padding: 18px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+      text-align: center;
+    }
+
+    .popup h2 {
+      margin-top: 0;
+      margin-bottom: 12px;
+      color: #facc15;
+      font-size: 22px;
+    }
+
+    .popup p {
+      margin: 8px 0;
+      font-size: 15px;
+      line-height: 1.45;
+    }
+
+    .popup .score-line {
+      font-size: 17px;
+      font-weight: bold;
+      margin: 14px 0;
+    }
+
+    .popup .popup-actions {
+      margin-top: 14px;
+    }
+
+    @media (min-width: 768px) {
+      body {
+        padding: 20px;
+      }
+
+      .topbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      #timerInfo {
+        grid-column: auto;
+        text-align: left;
+        font-size: 13px;
+      }
+
+      .hand-card {
+        width: auto;
+        min-width: 130px;
+        flex: 0 0 auto;
+      }
+
+      .exp-box, .discard-box {
+        min-width: 170px;
+        flex: 1 1 170px;
+      }
+
+      .mini-box {
+        min-width: 150px;
+        flex: 1 1 150px;
+      }
+
+      button {
+        width: auto;
+        min-height: auto;
+        padding: 8px 10px;
+        margin: 4px 2px 0 2px;
+      }
+
+      .hand-card button {
+        width: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <h1>Lost Cities Online</h1>
+
+  <div class="topbar">
+    <div class="status" id="roomInfo">room: -</div>
+    <div class="status" id="playerInfo">player: -</div>
+    <div class="status" id="turnInfo">turn: -</div>
+    <div class="status" id="phaseInfo">phase: -</div>
+    <div class="status" id="statusInfo">status: -</div>
+    <div class="status" id="roundInfo">round: -</div>
+    <div class="status" id="timerInfo">timer: -</div>
+  </div>
+
+  <div class="box" id="mainStatusBox">
+    <div id="message">불러오는 중...</div>
+    <div class="small mono">자동 배정: index.html?room=room1</div>
+    <div class="small mono">강제 지정도 가능: index.html?room=room1&amp;player=1 또는 &amp;player=2</div>
+
+    <div class="action-log" id="lastActionBox">
+      <strong>최근 행동:</strong> <span id="lastActionText">없음</span>
+    </div>
+
+    <div class="action-bar">
+      <button id="endGameBtn" class="end" onclick="endGameAndResetRoom()">게임 종료</button>
+    </div>
+
+    <div id="winnerText" class="winner"></div>
+  </div>
+
+  <div class="box">
+    <h2>점수</h2>
+    <div class="row">
+      <div class="mini-box" id="score1Box">player1 라운드: 0</div>
+      <div class="mini-box" id="score2Box">player2 라운드: 0</div>
+      <div class="mini-box" id="matchScore1Box">player1 누적: 0</div>
+      <div class="mini-box" id="matchScore2Box">player2 누적: 0</div>
+      <div class="mini-box" id="deckCountBox">deck: 0</div>
+    </div>
+  </div>
+
+  <div class="box">
+    <h2>내 손패</h2>
+    <div id="handArea" class="row"></div>
+  </div>
+
+  <div class="box">
+    <h2>내 탐험 칸</h2>
+    <div id="myExpArea" class="row"></div>
+  </div>
+
+  <div class="box">
+    <h2>상대 탐험 칸</h2>
+    <div id="oppExpArea" class="row"></div>
+  </div>
+
+  <div class="box">
+    <h2>뽑기 영역</h2>
+    <div class="row">
+      <div class="discard-box">
+        <h3>덱</h3>
+        <div id="deckCount">0장</div>
+        <button id="drawDeckBtn" class="draw" onclick="drawFromDeck()">덱에서 뽑기</button>
+      </div>
+
+      <div class="discard-box">
+        <h3 class="color-red">빨강 버림</h3>
+        <div id="discardRedTop">없음</div>
+        <button id="drawRedBtn" class="draw" onclick="drawFromDiscard('red')">빨강 뽑기</button>
+      </div>
+
+      <div class="discard-box">
+        <h3 class="color-blue">파랑 버림</h3>
+        <div id="discardBlueTop">없음</div>
+        <button id="drawBlueBtn" class="draw" onclick="drawFromDiscard('blue')">파랑 뽑기</button>
+      </div>
+
+      <div class="discard-box">
+        <h3 class="color-yellow">노랑 버림</h3>
+        <div id="discardYellowTop">없음</div>
+        <button id="drawYellowBtn" class="draw" onclick="drawFromDiscard('yellow')">노랑 뽑기</button>
+      </div>
+
+      <div class="discard-box">
+        <h3 class="color-green">초록 버림</h3>
+        <div id="discardGreenTop">없음</div>
+        <button id="drawGreenBtn" class="draw" onclick="drawFromDiscard('green')">초록 뽑기</button>
+      </div>
+
+      <div class="discard-box">
+        <h3 class="color-white">하양 버림</h3>
+        <div id="discardWhiteTop">없음</div>
+        <button id="drawWhiteBtn" class="draw" onclick="drawFromDiscard('white')">하양 뽑기</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="overlay" id="resultOverlay">
+    <div class="popup">
+      <h2>매치 종료</h2>
+      <p id="popupResultText">결과를 계산 중입니다.</p>
+      <div class="score-line" id="popupScoreText"></div>
+      <p id="popupRoundScoreText"></p>
+      <div class="popup-actions">
+        <button class="primary" onclick="closeResultPopup()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const SUPABASE_URL = "https://mppcbupohiuqxghialnx.supabase.co";
+    const SUPABASE_ANON_KEY = "sb_publishable_Mwxs6PkZ3fAHLLohVRb_Ww_e2FF-RIB";
+
+    const params = new URLSearchParams(window.location.search);
+    const roomId = params.get("room") || "room1";
+    let myPlayer = params.get("player") ? Number(params.get("player")) : null;
+
+    const COLORS = ["red", "blue", "yellow", "green", "white"];
+
+    let room = null;
+    let busy = false;
+    let channel = null;
+    let sb = null;
+    let lastFinishedSignature = "";
+    let timerInterval = null;
+
+    function msg(text) {
+      document.getElementById("message").textContent = text;
+    }
+
+    function setTopInfo() {
+      document.getElementById("roomInfo").textContent = `room: ${roomId}`;
+      document.getElementById("playerInfo").textContent = `player: ${myPlayer ?? "-"}`;
+      document.getElementById("turnInfo").textContent = `turn: ${room?.turn ?? "-"}`;
+      document.getElementById("phaseInfo").textContent = `phase: ${room?.phase || "-"}`;
+      document.getElementById("statusInfo").textContent = `status: ${room?.status || "-"}`;
+      document.getElementById("roundInfo").textContent = `round: ${room?.round_no ?? 1}/${room?.max_rounds ?? 3}`;
+
+      const turnInfo = document.getElementById("turnInfo");
+      const phaseInfo = document.getElementById("phaseInfo");
+      const statusInfo = document.getElementById("statusInfo");
+      const roundInfo = document.getElementById("roundInfo");
+      const mainStatusBox = document.getElementById("mainStatusBox");
+
+      turnInfo.classList.remove("active-turn", "wait-turn");
+      phaseInfo.classList.remove("active-turn", "wait-turn");
+      statusInfo.classList.remove("active-turn", "wait-turn");
+      roundInfo.classList.remove("active-turn", "wait-turn");
+      mainStatusBox.classList.remove("turn-highlight");
+
+      document.body.classList.remove("my-turn-glow");
+      document.body.classList.remove("turn-warning");
+
+      if (room && room.status === "playing" && myPlayer) {
+        if (Number(room.turn) === myPlayer) {
+          turnInfo.classList.add("active-turn");
+          phaseInfo.classList.add("active-turn");
+          statusInfo.classList.add("active-turn");
+          roundInfo.classList.add("active-turn");
+          mainStatusBox.classList.add("turn-highlight");
+          document.body.classList.add("my-turn-glow");
+        } else {
+          turnInfo.classList.add("wait-turn");
+          phaseInfo.classList.add("wait-turn");
+          statusInfo.classList.add("wait-turn");
+          roundInfo.classList.add("wait-turn");
+        }
+      }
+    }
+
+    function getClientId() {
+      let id = localStorage.getItem("lostcities_client_id");
+      if (!id) {
+        if (window.crypto && crypto.randomUUID) {
+          id = "client_" + crypto.randomUUID();
+        } else {
+          id = "client_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+        }
+        localStorage.setItem("lostcities_client_id", id);
+      }
+      return id;
+    }
+
+    const clientId = getClientId();
+
+    function parseTextArray(v) {
+      if (Array.isArray(v)) return v;
+      if (!v || v === "") return [];
+      try {
+        const parsed = JSON.parse(v);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+
+    function toTextArray(arr) {
+      return JSON.stringify(arr || []);
+    }
+
+    function topCard(arr) {
+      return arr.length ? arr[arr.length - 1] : null;
+    }
+
+    function nowIso() {
+      return new Date().toISOString();
+    }
+
+    function myHandKey() {
+      return myPlayer === 1 ? "hand1" : "hand2";
+    }
+
+    function myExpKey(color) {
+      return myPlayer === 1 ? `exp1_${color}` : `exp2_${color}`;
+    }
+
+    function oppExpKey(color) {
+      return myPlayer === 1 ? `exp2_${color}` : `exp1_${color}`;
+    }
+
+    function myPlayedKey() {
+      return myPlayer === 1 ? "played1" : "played2";
+    }
+
+    function isMyTurn() {
+      return Number(room?.turn) === myPlayer;
+    }
+
+    function currentPhase() {
+      return room?.phase || "play";
+    }
+
+    function roomStatus() {
+      return room?.status || "waiting";
+    }
+
+    function canPlayNow() {
+      return myPlayer && isMyTurn() && currentPhase() === "play" && roomStatus() === "playing";
+    }
+
+    function canDrawNow() {
+      return myPlayer && isMyTurn() && currentPhase() === "draw" && roomStatus() === "playing";
+    }
+
+    function parseCard(card) {
+      if (typeof card === "object" && card) {
+        const color = String(card.color || "").toLowerCase();
+        const valueRaw = String(card.value ?? "").toLowerCase();
+        if (valueRaw === "inv" || valueRaw === "investment") {
+          return { color, type: "inv", value: 0 };
+        }
+        return { color, type: "num", value: Number(valueRaw) };
+      }
+
+      const s = String(card || "").trim().toLowerCase();
+
+      for (const c of COLORS) {
+        if (s.startsWith(c + "_")) {
+          const rest = s.slice((c + "_").length);
+          if (rest === "inv" || rest === "investment") return { color: c, type: "inv", value: 0 };
+          return { color: c, type: "num", value: Number(rest) };
+        }
+        if (s.startsWith(c + "-")) {
+          const rest = s.slice((c + "-").length);
+          if (rest === "inv" || rest === "investment") return { color: c, type: "inv", value: 0 };
+          return { color: c, type: "num", value: Number(rest) };
+        }
+      }
+
+      const shortMap = { r: "red", b: "blue", y: "yellow", g: "green", w: "white" };
+      const first = s[0];
+      if (shortMap[first]) {
+        const rest = s.slice(1);
+        if (rest === "inv") return { color: shortMap[first], type: "inv", value: 0 };
+        return { color: shortMap[first], type: "num", value: Number(rest) };
+      }
+
+      return { color: "", type: "", value: 0 };
+    }
+
+    function getColorName(color) {
+      return {
+        red: "빨강",
+        blue: "파랑",
+        yellow: "노랑",
+        green: "초록",
+        white: "하양"
+      }[color] || color;
+    }
+
+    function cardToText(card) {
+      const p = parseCard(card);
+      if (!p.color) return String(card ?? "");
+      if (p.type === "inv") return `${getColorName(p.color)} 투자`;
+      return `${getColorName(p.color)} ${p.value}`;
+    }
+
+    function getPlayerLabel(playerNo) {
+      return playerNo === 1 ? "player1" : "player2";
+    }
+
+    function getHandCardClass(card) {
+      const p = parseCard(card);
+      return `hand-card color-${p.color || "blue"}`;
+    }
+
+    function getCardMainText(card) {
+      const p = parseCard(card);
+      if (!p.color) return "?";
+      if (p.type === "inv") return "투자";
+      return String(p.value);
+    }
+
+    function getCardSubText(card) {
+      const p = parseCard(card);
+      if (!p.color) return "";
+      return getColorName(p.color);
+    }
+
+    function sortHand(arr) {
+      const colorOrder = { red: 1, blue: 2, yellow: 3, green: 4, white: 5 };
+      return [...arr].sort((a, b) => {
+        const pa = parseCard(a);
+        const pb = parseCard(b);
+        const ca = colorOrder[pa.color] || 99;
+        const cb = colorOrder[pb.color] || 99;
+        if (ca !== cb) return ca - cb;
+        const va = pa.type === "inv" ? 0 : pa.value;
+        const vb = pb.type === "inv" ? 0 : pb.value;
+        return va - vb;
+      });
+    }
+
+    function shuffle(arr) {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function createDeck() {
+      const deck = [];
+      for (const color of COLORS) {
+        deck.push(`${color}_inv`);
+        deck.push(`${color}_inv`);
+        deck.push(`${color}_inv`);
+        for (let n = 2; n <= 10; n++) {
+          deck.push(`${color}_${n}`);
+        }
+      }
+      return shuffle(deck);
+    }
+
+    function dealInitialHands(deck) {
+      const d = [...deck];
+      const hand1 = [];
+      const hand2 = [];
+      for (let i = 0; i < 8; i++) hand1.push(d.shift());
+      for (let i = 0; i < 8; i++) hand2.push(d.shift());
+      return {
+        hand1: sortHand(hand1),
+        hand2: sortHand(hand2),
+        deck: d
+      };
+    }
+
+    function canPlaceOnExp(expArr, card) {
+      const parsed = parseCard(card);
+      if (!parsed.color || !COLORS.includes(parsed.color)) {
+        return { ok: false, reason: "카드 색상을 읽을 수 없습니다." };
+      }
+
+      if (expArr.length === 0) return { ok: true, reason: "" };
+
+      const parsedExp = expArr.map(parseCard);
+
+      if (parsed.type === "inv") {
+        const hasNumber = parsedExp.some(c => c.type === "num");
+        if (hasNumber) {
+          return { ok: false, reason: "투자 카드는 숫자 카드보다 먼저만 낼 수 있습니다." };
+        }
+        return { ok: true, reason: "" };
+      }
+
+      const numberCards = parsedExp.filter(c => c.type === "num");
+      if (numberCards.length === 0) return { ok: true, reason: "" };
+
+      const lastNumber = numberCards[numberCards.length - 1];
+      if (parsed.value < lastNumber.value) {
+        return { ok: false, reason: "숫자 오름차순만 가능합니다." };
+      }
+
+      return { ok: true, reason: "" };
+    }
+
+    function calcExpScore(expArr) {
+      if (!expArr.length) return 0;
+
+      let investCount = 0;
+      let sum = 0;
+
+      for (const card of expArr) {
+        const p = parseCard(card);
+        if (p.type === "inv") investCount++;
+        if (p.type === "num") sum += Number(p.value || 0);
+      }
+
+      let score = (sum - 20) * (investCount + 1);
+      if (expArr.length >= 8) score += 20;
+      return score;
+    }
+
+    function calcPlayerScore(playerNo, sourceRoom) {
+      let total = 0;
+      for (const color of COLORS) {
+        const key = playerNo === 1 ? `exp1_${color}` : `exp2_${color}`;
+        total += calcExpScore(parseTextArray(sourceRoom[key]));
+      }
+      return total;
+    }
+
+    function buildPatchWithScores(basePatch) {
+      const fakeRoom = { ...room, ...basePatch };
+      fakeRoom.score1 = calcPlayerScore(1, fakeRoom);
+      fakeRoom.score2 = calcPlayerScore(2, fakeRoom);
+      return fakeRoom;
+    }
+
+    function makeEmptyRoomRow() {
+      return {
+        room_id: roomId,
+        player1: "",
+        player2: "",
+        status: "waiting",
+        turn: 1,
+        phase: "play",
+        hand1: toTextArray([]),
+        hand2: toTextArray([]),
+        played1: toTextArray([]),
+        played2: toTextArray([]),
+        deck: toTextArray([]),
+
+        exp1_red: toTextArray([]),
+        exp1_blue: toTextArray([]),
+        exp1_yellow: toTextArray([]),
+        exp1_green: toTextArray([]),
+        exp1_white: toTextArray([]),
+
+        exp2_red: toTextArray([]),
+        exp2_blue: toTextArray([]),
+        exp2_yellow: toTextArray([]),
+        exp2_green: toTextArray([]),
+        exp2_white: toTextArray([]),
+
+        discard_red: toTextArray([]),
+        discard_blue: toTextArray([]),
+        discard_yellow: toTextArray([]),
+        discard_green: toTextArray([]),
+        discard_white: toTextArray([]),
+
+        score1: 0,
+        score2: 0,
+        last_action: "",
+        round_no: 1,
+        max_rounds: 3,
+        match_score1: 0,
+        match_score2: 0,
+        turn_started_at: null,
+        turn_time_limit: 45
+      };
+    }
+
+    function getMatchWinnerSummary(sourceRoom) {
+      const m1 = Number(sourceRoom?.match_score1 || 0);
+      const m2 = Number(sourceRoom?.match_score2 || 0);
+
+      if (m1 > m2) return { title: "player1 최종 승리", line: `${m1} : ${m2}` };
+      if (m2 > m1) return { title: "player2 최종 승리", line: `${m2} : ${m1}` };
+      return { title: "최종 무승부", line: `${m1} : ${m2}` };
+    }
+
+    function maybeShowResultPopup() {
+      if (!room || roomStatus() !== "finished") return;
+
+      const signature = `${roomId}_${room.match_score1}_${room.match_score2}_${room.round_no}_${room.last_action || ""}`;
+      if (lastFinishedSignature === signature) return;
+      lastFinishedSignature = signature;
+
+      const finalSummary = getMatchWinnerSummary(room);
+      document.getElementById("popupResultText").textContent = finalSummary.title;
+      document.getElementById("popupScoreText").textContent = `최종 누적 점수: ${finalSummary.line}`;
+      document.getElementById("popupRoundScoreText").textContent =
+        `마지막 라운드 점수: ${Number(room.score1 || 0)} : ${Number(room.score2 || 0)}`;
+      document.getElementById("resultOverlay").classList.add("show");
+    }
+
+    function closeResultPopup() {
+      document.getElementById("resultOverlay").classList.remove("show");
+    }
+
+    function updateTimerDisplay() {
+      const timerInfo = document.getElementById("timerInfo");
+      timerInfo.classList.remove("timer-warning");
+
+      if (!room || room.status !== "playing" || !room.turn_started_at) {
+        timerInfo.textContent = "timer: -";
+        document.body.classList.remove("turn-warning");
+        return;
+      }
+
+      const limit = Number(room.turn_time_limit || 45);
+      const startedAt = new Date(room.turn_started_at).getTime();
+
+      if (Number.isNaN(startedAt)) {
+        timerInfo.textContent = `timer: ${limit}s`;
+        return;
+      }
+
+      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+      const remain = Math.max(0, limit - elapsed);
+
+      timerInfo.textContent = `timer: ${remain}s`;
+
+      if (remain <= 10) {
+        timerInfo.classList.add("timer-warning");
+      }
+
+      if (room.status === "playing" && Number(room.turn) === myPlayer) {
+        if (remain <= 5) {
+          document.body.classList.remove("my-turn-glow");
+          document.body.classList.add("turn-warning");
+        } else {
+          document.body.classList.remove("turn-warning");
+          document.body.classList.add("my-turn-glow");
+        }
+      } else {
+        document.body.classList.remove("my-turn-glow");
+        document.body.classList.remove("turn-warning");
+      }
+    }
+
+    function startTimerLoop() {
+      if (timerInterval) clearInterval(timerInterval);
+      updateTimerDisplay();
+      timerInterval = setInterval(updateTimerDisplay, 1000);
+    }
+
+    function render() {
+      setTopInfo();
+      if (!room) {
+        updateTimerDisplay();
+        return;
+      }
+
+      const deck = parseTextArray(room.deck);
+      const hand = myPlayer ? parseTextArray(room[myHandKey()]) : [];
+
+      document.getElementById("score1Box").textContent = `player1 라운드: ${Number(room.score1 || 0)}`;
+      document.getElementById("score2Box").textContent = `player2 라운드: ${Number(room.score2 || 0)}`;
+      document.getElementById("matchScore1Box").textContent = `player1 누적: ${Number(room.match_score1 || 0)}`;
+      document.getElementById("matchScore2Box").textContent = `player2 누적: ${Number(room.match_score2 || 0)}`;
+      document.getElementById("deckCountBox").textContent = `deck: ${deck.length}`;
+      document.getElementById("deckCount").textContent = `${deck.length}장`;
+
+      document.getElementById("lastActionText").textContent = room.last_action || "없음";
+
+      document.getElementById("winnerText").textContent = "";
+      if (roomStatus() === "finished") {
+        const summary = getMatchWinnerSummary(room);
+        document.getElementById("winnerText").textContent = `매치 종료 - ${summary.title} (${summary.line})`;
+      }
+
+      if (!myPlayer) {
+        msg("플레이어 자리 배정 중...");
+      } else if (roomStatus() === "waiting") {
+        msg("상대가 들어오면 자동 시작됩니다.");
+      } else if (roomStatus() === "finished") {
+        msg("3라운드 매치가 종료되었습니다.");
+      } else if (isMyTurn()) {
+        if (currentPhase() === "play") msg("내 턴: 카드 1장을 탐험 또는 버리기 하세요.");
+        else msg("내 턴: 이제 반드시 1장을 뽑아야 턴이 끝납니다.");
+      } else {
+        msg("상대 턴입니다.");
+      }
+
+      const canUseEndButton = !!myPlayer || !!room?.player1 || !!room?.player2;
+      document.getElementById("endGameBtn").disabled = !canUseEndButton;
+
+      const handArea = document.getElementById("handArea");
+      handArea.innerHTML = "";
+
+      hand.forEach((card, idx) => {
+        const box = document.createElement("div");
+        box.className = getHandCardClass(card);
+
+        const main = document.createElement("div");
+        main.className = "card-title";
+        main.textContent = getCardMainText(card);
+
+        const sub = document.createElement("div");
+        sub.className = "card-subtitle";
+        sub.textContent = getCardSubText(card);
+
+        const playBtn = document.createElement("button");
+        playBtn.className = "primary";
+        playBtn.textContent = "탐험";
+        playBtn.disabled = !canPlayNow();
+        playBtn.onclick = () => playToExp(idx);
+
+        const discardBtn = document.createElement("button");
+        discardBtn.className = "warn";
+        discardBtn.textContent = "버리기";
+        discardBtn.disabled = !canPlayNow();
+        discardBtn.onclick = () => discardCard(idx);
+
+        box.appendChild(main);
+        box.appendChild(sub);
+        box.appendChild(playBtn);
+        box.appendChild(discardBtn);
+        handArea.appendChild(box);
+      });
+
+      if (hand.length === 0) {
+        handArea.innerHTML = "<div class='small'>손패 없음</div>";
+      }
+
+      const myExpArea = document.getElementById("myExpArea");
+      myExpArea.innerHTML = "";
+      for (const color of COLORS) {
+        const arr = myPlayer ? parseTextArray(room[myExpKey(color)]) : [];
+        const div = document.createElement("div");
+        div.className = "exp-box";
+        div.innerHTML = `
+          <h3 class="color-${color}">${color.toUpperCase()}</h3>
+          <div>${arr.length ? arr.map(cardToText).join(", ") : "없음"}</div>
+          <div class="small">점수: ${calcExpScore(arr)}</div>
+        `;
+        myExpArea.appendChild(div);
+      }
+
+      const oppExpArea = document.getElementById("oppExpArea");
+      oppExpArea.innerHTML = "";
+      for (const color of COLORS) {
+        const arr = myPlayer ? parseTextArray(room[oppExpKey(color)]) : [];
+        const div = document.createElement("div");
+        div.className = "exp-box";
+        div.innerHTML = `
+          <h3 class="color-${color}">${color.toUpperCase()}</h3>
+          <div>${arr.length ? arr.map(cardToText).join(", ") : "없음"}</div>
+        `;
+        oppExpArea.appendChild(div);
+      }
+
+      const redPile = parseTextArray(room.discard_red);
+      const bluePile = parseTextArray(room.discard_blue);
+      const yellowPile = parseTextArray(room.discard_yellow);
+      const greenPile = parseTextArray(room.discard_green);
+      const whitePile = parseTextArray(room.discard_white);
+
+      document.getElementById("discardRedTop").textContent = topCard(redPile) ? cardToText(topCard(redPile)) : "없음";
+      document.getElementById("discardBlueTop").textContent = topCard(bluePile) ? cardToText(topCard(bluePile)) : "없음";
+      document.getElementById("discardYellowTop").textContent = topCard(yellowPile) ? cardToText(topCard(yellowPile)) : "없음";
+      document.getElementById("discardGreenTop").textContent = topCard(greenPile) ? cardToText(topCard(greenPile)) : "없음";
+      document.getElementById("discardWhiteTop").textContent = topCard(whitePile) ? cardToText(topCard(whitePile)) : "없음";
+
+      document.getElementById("drawDeckBtn").disabled = !canDrawNow() || deck.length === 0;
+      document.getElementById("drawRedBtn").disabled = !canDrawNow() || redPile.length === 0;
+      document.getElementById("drawBlueBtn").disabled = !canDrawNow() || bluePile.length === 0;
+      document.getElementById("drawYellowBtn").disabled = !canDrawNow() || yellowPile.length === 0;
+      document.getElementById("drawGreenBtn").disabled = !canDrawNow() || greenPile.length === 0;
+      document.getElementById("drawWhiteBtn").disabled = !canDrawNow() || whitePile.length === 0;
+
+      updateTimerDisplay();
+      maybeShowResultPopup();
+    }
+
+    async function fetchRoom() {
+      const { data, error } = await sb
+        .from("rooms")
+        .select("*")
+        .eq("room_id", roomId)
+        .maybeSingle();
+
+      if (error) {
+        msg("room 조회 실패: " + error.message);
+        console.error(error);
+        return null;
+      }
+
+      room = data;
+      render();
+      return data;
+    }
+
+    async function createRoomIfMissing() {
+      const found = await fetchRoom();
+      if (found) return true;
+
+      const row = makeEmptyRoomRow();
+      const { error } = await sb.from("rooms").insert(row);
+
+      if (error) {
+        msg("room 생성 실패: " + error.message);
+        console.error(error);
+        return false;
+      }
+
+      await fetchRoom();
+      return true;
+    }
+
+    async function updateRoom(patch) {
+      if (busy) return false;
+      busy = true;
+
+      try {
+        const finalPatch = buildPatchWithScores(patch);
+
+        const { data, error } = await sb
+          .from("rooms")
+          .update(finalPatch)
+          .eq("room_id", roomId)
+          .select()
+          .maybeSingle();
+
+        if (error) {
+          msg("업데이트 실패: " + error.message);
+          console.error(error);
+          return false;
+        }
+
+        room = data;
+        render();
+        return true;
+      } finally {
+        busy = false;
+      }
+    }
+
+    async function claimPlayerSlot(slotNo) {
+      const field = slotNo === 1 ? "player1" : "player2";
+
+      const { data, error } = await sb
+        .from("rooms")
+        .update({ [field]: clientId })
+        .eq("room_id", roomId)
+        .eq(field, "")
+        .select()
+        .maybeSingle();
+
+      if (error) {
+        console.error("자리 배정 실패:", error);
+        return false;
+      }
+
+      if (data) {
+        myPlayer = slotNo;
+        room = data;
+        render();
+        return true;
+      }
+
+      return false;
+    }
+
+    async function ensurePlayerJoined() {
+      if (!room) return false;
+
+      if (room.player1 === clientId) {
+        myPlayer = 1;
+        render();
+        return true;
+      }
+
+      if (room.player2 === clientId) {
+        myPlayer = 2;
+        render();
+        return true;
+      }
+
+      if (myPlayer === 1 || myPlayer === 2) {
+        const field = myPlayer === 1 ? "player1" : "player2";
+
+        if (!room[field]) {
+          const { data, error } = await sb
+            .from("rooms")
+            .update({ [field]: clientId })
+            .eq("room_id", roomId)
+            .eq(field, "")
+            .select()
+            .maybeSingle();
+
+          if (error) {
+            msg("참가 실패: " + error.message);
+            console.error(error);
+            return false;
+          }
+
+          if (data) {
+            room = data;
+            render();
+            return true;
+          }
+        }
+
+        if (room[field] === clientId) return true;
+
+        msg(`player ${myPlayer} 자리는 이미 사용 중입니다.`);
+        return false;
+      }
+
+      let ok = await claimPlayerSlot(1);
+      if (ok) return true;
+
+      ok = await claimPlayerSlot(2);
+      if (ok) return true;
+
+      msg("이 방은 이미 가득 찼습니다.");
+      return false;
+    }
+
+    function makeStartedRoundPatch(roundNo, maxRounds, matchScore1, matchScore2, turnTimeLimit, actionText) {
+      const newDeck = createDeck();
+      const dealt = dealInitialHands(newDeck);
+
+      return {
+        status: "playing",
+        turn: 1,
+        phase: "play",
+        hand1: toTextArray(dealt.hand1),
+        hand2: toTextArray(dealt.hand2),
+        played1: toTextArray([]),
+        played2: toTextArray([]),
+        deck: toTextArray(dealt.deck),
+
+        exp1_red: toTextArray([]),
+        exp1_blue: toTextArray([]),
+        exp1_yellow: toTextArray([]),
+        exp1_green: toTextArray([]),
+        exp1_white: toTextArray([]),
+
+        exp2_red: toTextArray([]),
+        exp2_blue: toTextArray([]),
+        exp2_yellow: toTextArray([]),
+        exp2_green: toTextArray([]),
+        exp2_white: toTextArray([]),
+
+        discard_red: toTextArray([]),
+        discard_blue: toTextArray([]),
+        discard_yellow: toTextArray([]),
+        discard_green: toTextArray([]),
+        discard_white: toTextArray([]),
+
+        score1: 0,
+        score2: 0,
+        round_no: roundNo,
+        max_rounds: maxRounds,
+        match_score1: matchScore1,
+        match_score2: matchScore2,
+        turn_time_limit: turnTimeLimit,
+        turn_started_at: nowIso(),
+        last_action: actionText
+      };
+    }
+
+    async function maybeAutoStart() {
+      await fetchRoom();
+      if (!room) return;
+
+      const hasP1 = !!room.player1;
+      const hasP2 = !!room.player2;
+      const status = room.status || "waiting";
+
+      if (!hasP1 || !hasP2) {
+        if (status !== "waiting") {
+          await updateRoom({
+            status: "waiting",
+            last_action: "플레이어를 기다리는 중입니다.",
+            turn_started_at: null
+          });
+        }
+        return;
+      }
+
+      if (status === "playing" || status === "finished") return;
+
+      await updateRoom(
+        makeStartedRoundPatch(
+          1,
+          Number(room.max_rounds || 3),
+          0,
+          0,
+          Number(room.turn_time_limit || 45),
+          "1라운드가 시작되었습니다. player1부터 시작합니다."
+        )
+      );
+    }
+
+    async function playToExp(handIndex) {
+      if (!room || !myPlayer || !canPlayNow() || busy) return;
+
+      const handKey = myHandKey();
+      const hand = parseTextArray(room[handKey]);
+      if (handIndex < 0 || handIndex >= hand.length) return;
+
+      const card = hand[handIndex];
+      const parsed = parseCard(card);
+
+      if (!parsed.color || !COLORS.includes(parsed.color)) {
+        msg("카드 형식이 이상합니다.");
+        return;
+      }
+
+      const expKey = myExpKey(parsed.color);
+      const exp = parseTextArray(room[expKey]);
+
+      const check = canPlaceOnExp(exp, card);
+      if (!check.ok) {
+        alert(check.reason);
+        return;
+      }
+
+      hand.splice(handIndex, 1);
+      exp.push(card);
+
+      const playedKey = myPlayedKey();
+      const played = parseTextArray(room[playedKey]);
+      played.push(card);
+
+      await updateRoom({
+        [handKey]: toTextArray(sortHand(hand)),
+        [expKey]: toTextArray(exp),
+        [playedKey]: toTextArray(played),
+        phase: "draw",
+        last_action: `${getPlayerLabel(myPlayer)}이(가) ${cardToText(card)} 카드를 탐험 칸에 냈습니다.`
+      });
+    }
+
+    async function discardCard(handIndex) {
+      if (!room || !myPlayer || !canPlayNow() || busy) return;
+
+      const handKey = myHandKey();
+      const hand = parseTextArray(room[handKey]);
+      if (handIndex < 0 || handIndex >= hand.length) return;
+
+      const card = hand[handIndex];
+      const parsed = parseCard(card);
+
+      if (!parsed.color || !COLORS.includes(parsed.color)) {
+        msg("카드 형식이 이상합니다.");
+        return;
+      }
+
+      hand.splice(handIndex, 1);
+
+      const discardKey = `discard_${parsed.color}`;
+      const pile = parseTextArray(room[discardKey]);
+      pile.push(card);
+
+      const playedKey = myPlayedKey();
+      const played = parseTextArray(room[playedKey]);
+      played.push(card);
+
+      await updateRoom({
+        [handKey]: toTextArray(sortHand(hand)),
+        [discardKey]: toTextArray(pile),
+        [playedKey]: toTextArray(played),
+        phase: "draw",
+        last_action: `${getPlayerLabel(myPlayer)}이(가) ${cardToText(card)} 카드를 버렸습니다.`
+      });
+    }
+
+    async function drawFromDeck() {
+      if (!room || !myPlayer || !canDrawNow() || busy) return;
+
+      const deck = parseTextArray(room.deck);
+      if (deck.length === 0) {
+        alert("덱이 비었습니다.");
+        return;
+      }
+
+      const drawn = deck.shift();
+      const handKey = myHandKey();
+      const hand = parseTextArray(room[handKey]);
+      hand.push(drawn);
+
+      const nextTurn = myPlayer === 1 ? 2 : 1;
+      const nextPlayerLabel = getPlayerLabel(nextTurn);
+      const maxRounds = Number(room.max_rounds || 3);
+      const currentRound = Number(room.round_no || 1);
+      const turnTimeLimit = Number(room.turn_time_limit || 45);
+
+      const basePatch = {
+        deck: toTextArray(deck),
+        [handKey]: toTextArray(sortHand(hand)),
+        turn: nextTurn,
+        phase: "play"
+      };
+
+      if (deck.length > 0) {
+        await updateRoom({
+          ...basePatch,
+          turn_started_at: nowIso(),
+          last_action: `${getPlayerLabel(myPlayer)}이(가) 덱에서 1장을 뽑았습니다. 다음 턴은 ${nextPlayerLabel}입니다.`
+        });
+        return;
+      }
+
+      const fakeRoom = buildPatchWithScores(basePatch);
+      const roundScore1 = Number(fakeRoom.score1 || 0);
+      const roundScore2 = Number(fakeRoom.score2 || 0);
+      const nextMatchScore1 = Number(room.match_score1 || 0) + roundScore1;
+      const nextMatchScore2 = Number(room.match_score2 || 0) + roundScore2;
+
+      if (currentRound < maxRounds) {
+        await updateRoom(
+          makeStartedRoundPatch(
+            currentRound + 1,
+            maxRounds,
+            nextMatchScore1,
+            nextMatchScore2,
+            turnTimeLimit,
+            `${currentRound}라운드 종료 (${roundScore1} : ${roundScore2}). 누적 점수는 ${nextMatchScore1} : ${nextMatchScore2} 입니다. ${currentRound + 1}라운드가 시작됩니다.`
+          )
+        );
+        return;
+      }
+
+      const finalMatchRoom = {
+        ...fakeRoom,
+        match_score1: nextMatchScore1,
+        match_score2: nextMatchScore2
+      };
+      const finalSummary = getMatchWinnerSummary(finalMatchRoom);
+
+      await updateRoom({
+        ...basePatch,
+        status: "finished",
+        match_score1: nextMatchScore1,
+        match_score2: nextMatchScore2,
+        turn_started_at: null,
+        last_action: `3라운드 매치 종료. ${finalSummary.title} (${finalSummary.line})`
+      });
+    }
+
+    async function drawFromDiscard(color) {
+      if (!room || !myPlayer || !canDrawNow() || busy) return;
+      if (!COLORS.includes(color)) return;
+
+      const discardKey = `discard_${color}`;
+      const pile = parseTextArray(room[discardKey]);
+      if (pile.length === 0) {
+        alert("버림 더미가 비었습니다.");
+        return;
+      }
+
+      const drawn = pile.pop();
+      const handKey = myHandKey();
+      const hand = parseTextArray(room[handKey]);
+      hand.push(drawn);
+
+      const nextTurn = myPlayer === 1 ? 2 : 1;
+
+      await updateRoom({
+        [discardKey]: toTextArray(pile),
+        [handKey]: toTextArray(sortHand(hand)),
+        turn: nextTurn,
+        phase: "play",
+        turn_started_at: nowIso(),
+        last_action: `${getPlayerLabel(myPlayer)}이(가) ${getColorName(color)} 버림 더미에서 1장을 가져갔습니다. 다음 턴은 ${getPlayerLabel(nextTurn)}입니다.`
+      });
+    }
+
+    async function endGameAndResetRoom() {
+      if (!room || busy) return;
+
+      const ok = confirm("정말 게임을 종료하고 방을 초기화할까요?\nplayer1/player2 자리도 모두 비워집니다.");
+      if (!ok) return;
+
+      closeResultPopup();
+      lastFinishedSignature = "";
+
+      await updateRoom({
+        player1: "",
+        player2: "",
+        status: "waiting",
+        turn: 1,
+        phase: "play",
+
+        hand1: toTextArray([]),
+        hand2: toTextArray([]),
+        played1: toTextArray([]),
+        played2: toTextArray([]),
+        deck: toTextArray([]),
+
+        exp1_red: toTextArray([]),
+        exp1_blue: toTextArray([]),
+        exp1_yellow: toTextArray([]),
+        exp1_green: toTextArray([]),
+        exp1_white: toTextArray([]),
+
+        exp2_red: toTextArray([]),
+        exp2_blue: toTextArray([]),
+        exp2_yellow: toTextArray([]),
+        exp2_green: toTextArray([]),
+        exp2_white: toTextArray([]),
+
+        discard_red: toTextArray([]),
+        discard_blue: toTextArray([]),
+        discard_yellow: toTextArray([]),
+        discard_green: toTextArray([]),
+        discard_white: toTextArray([]),
+
+        score1: 0,
+        score2: 0,
+        match_score1: 0,
+        match_score2: 0,
+        round_no: 1,
+        max_rounds: 3,
+        turn_started_at: null,
+        turn_time_limit: Number(room.turn_time_limit || 45),
+        last_action: "게임이 종료되고 방이 초기화되었습니다. 새 플레이어를 기다리는 중입니다."
+      });
+
+      myPlayer = null;
+      await fetchRoom();
+    }
+
+    async function initGame() {
+      setTopInfo();
+      msg("room 확인 중...");
+
+      if (!window.supabase || !window.supabase.createClient) {
+        msg("Supabase 라이브러리 로딩 실패");
+        console.error("window.supabase 없음");
+        return;
+      }
+
+      sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+      const ok = await createRoomIfMissing();
+      if (!ok) return;
+
+      await fetchRoom();
+
+      const joined = await ensurePlayerJoined();
+      if (!joined) {
+        await fetchRoom();
+      } else {
+        await fetchRoom();
+        await maybeAutoStart();
+        await fetchRoom();
+      }
+
+      channel = sb
+        .channel("room-" + roomId)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "rooms",
+            filter: `room_id=eq.${roomId}`
+          },
+          (payload) => {
+            room = payload.new;
+            if (room?.player1 === clientId) myPlayer = 1;
+            else if (room?.player2 === clientId) myPlayer = 2;
+            else myPlayer = null;
+            render();
+          }
+        )
+        .subscribe();
+
+      startTimerLoop();
+    }
+
+    window.addEventListener("load", initGame);
+  </script>
+</body>
+</html>
